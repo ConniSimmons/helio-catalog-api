@@ -1,0 +1,288 @@
+
+  
+this is how to make updates work if I'm lucky
+
+
+     class MyForm extends React.Component {
+        constructor(props)
+        {
+          super(props);
+          this.state = {
+            username: props.username,
+          };
+          console.log('props: ', props);
+        }
+        submitHandler = (event) =>
+        {
+          let id = this.props._id;
+          event.preventDefault();
+          const fetchOptions = {
+            headers: {'Content-Type': 'application/json'},
+            method: 'PUT',
+            body: JSON.stringify(this.state),
+          }
+          fetch(`http://localhost:8080/api/tasks/${id}`, fetchOptions)
+          .then((response) =>
+          {
+            return response.json()
+          })
+          .then((data) =>
+          {
+            this.props.getTasks();
+          })
+          .catch();
+        }
+        changeHandler = (event) =>
+        {
+          const key = event.target.getAttribute('name');
+          const update = {};
+          update[key] = event.target.value;
+          this.setState(update);
+        }
+        render()
+        {
+          return(
+            <form onSubmit={this.submitHandler}>
+              <input
+                value={this.state.username}
+                onChange={this.changeHandler}
+                name="username"
+                />
+              <input type='submit' value="I'm Done" />
+            </form>
+          )
+        }
+      }
+
+//////////////////////////////////////////////////////
+
+      class App extends React.Component {
+        constructor()
+        {
+          super();
+          this.state = {
+            catalog: [],
+            editForm: '',
+          }
+        }
+        getTasks = () =>
+        {
+          fetch('http://localhost:8080/api/catalog')
+          .then((response) =>
+          {
+            return response.json()
+          })
+          .then((data) =>
+          {
+            console.log('data from api: ', data);
+            this.setState({
+              catalog: data,
+              catalogList: data.map((item) =>
+              {
+                return <li 
+                          key={item._id}
+                          id={item._id}
+                          onClick={this.updateTask}
+                          >{item.username || "Unknown"}</li>
+              }),
+              editForm: ''
+            })
+          })
+          .catch();
+        }
+        updateTask = (event) =>
+        {
+          // this is the id of the item i want to update
+          //console.log('all tasks: ', this.state.tasks);
+          const id = event.target.getAttribute('id');
+          const stupidFind = (id) =>
+          {
+            for (let i = 0; i < this.state.tasks.length; i++)
+            {
+              let task = this.state.tasks[i];
+              if (task._id === id)
+              {
+                return task;
+              }
+            }
+            return null;
+          }
+          let thisTask = stupidFind(id);
+          //thisTask = thisTask[0];
+          //console.log('thisTask: ', thisTask);
+          //console.log('id: ', id);
+          this.setState({
+            editForm: ''
+          }, function()
+          {
+            this.setState({
+              editForm: <MyForm {...thisTask} getTasks={this.getTasks} />
+            })
+          });
+      
+          return;
+        }
+        componentDidMount()
+        {
+          this.getTasks();
+        }
+        render()
+        {
+          return (
+            <div className="App">
+              <ul>
+              {this.state.taskList}
+              </ul>
+              {this.state.editForm}
+            </div>
+          )
+        }
+      }
+
+///////////////////////////////////
+/*
+const db = require("./catalog.model");
+const Catalog = db.catalog;
+
+
+// Create and Save a new Catalog
+exports.create = (req, res) => {
+  // Validate request
+  if (!req.body.title) {
+    res.status(400).send({ message: "Content can not be empty!" });
+    return;
+  }
+
+  // Create a Catalog
+  const Catalog = new Catalog({
+    title: req.body.title,
+    description: req.body.description,
+    archived: req.body.archived ? req.body.archived : false
+  });
+
+  // Save Catalog in the database
+  catalog
+    .save(catalog)
+    .then(data => {
+      res.send(data);
+    })
+    .catch(err => {
+      res.status(500).send({
+        message:
+          err.message || "Some error occurred while creating the Catalog."
+      });
+    });
+};
+
+// Retrieve all Catalogs from the database.
+exports.findAll = (req, res) => {
+    const title = req.query.title;
+    var condition = title ? { title: { $regex: new RegExp(title), $options: "i" } } : {};
+  
+    Catalog.find(condition)
+      .then(data => {
+        res.send(data);
+      })
+      .catch(err => {
+        res.status(500).send({
+          message:
+            err.message || "Some error occurred while retrieving catalogs."
+        });
+      });
+};
+
+// Find a single Catalog with an id
+exports.findOne = (req, res) => {
+    const id = req.params.id;
+
+    Catalog.findById(id)
+      .then(data => {
+        if (!data)
+          res.status(404).send({ message: "Not found Catalog with id " + id });
+        else res.send(data);
+      })
+      .catch(err => {
+        res
+          .status(500)
+          .send({ message: "Error retrieving Catalog with id=" + id });
+      });
+};
+
+// Update a Catalog by the id in the request
+exports.update = (req, res) => {
+    if (!req.body) {
+        return res.status(400).send({
+          message: "Data to update can not be empty!"
+        });
+      }
+    
+      const id = req.params.id;
+    
+      Catalog.findByIdAndUpdate(id, req.body, { useFindAndModify: false })
+        .then(data => {
+          if (!data) {
+            res.status(404).send({
+              message: `Cannot update Catalog with id=${id}. Maybe Catalog was not found!`
+            });
+          } else res.send({ message: "Catalog was updated successfully." });
+        })
+        .catch(err => {
+          res.status(500).send({
+            message: "Error updating Catalog with id=" + id
+          });
+        });
+};
+
+// Delete a Catalog with the specified id in the request
+exports.delete = (req, res) => {
+    const id = req.params.id;
+
+    Catalog.findByIdAndRemove(id)
+      .then(data => {
+        if (!data) {
+          res.status(404).send({
+            message: `Cannot delete Catalog with id=${id}. Maybe Catalog was not found!`
+          });
+        } else {
+          res.send({
+            message: "Catalog was deleted successfully!"
+          });
+        }
+      })
+      .catch(err => {
+        res.status(500).send({
+          message: "Could not delete Catalog with id=" + id
+        });
+      });
+};
+
+// Delete all Catalogs from the database.
+exports.deleteAll = (req, res) => {
+    Catalog.deleteMany({})
+    .then(data => {
+      res.send({
+        message: `${data.deletedCount} Catalogs were deleted successfully!`
+      });
+    })
+    .catch(err => {
+      res.status(500).send({
+        message:
+          err.message || "Some error occurred while removing all catalogs."
+      });
+    });
+};
+
+// Find all archived Catalogs
+exports.findAllArchived = (req, res) => {
+    Catalog.find({ archived: true })
+    .then(data => {
+      res.send(data);
+    })
+    .catch(err => {
+      res.status(500).send({
+        message:
+          err.message || "Some error occurred while retrieving catalogs."
+      });
+    });
+};
+*/
